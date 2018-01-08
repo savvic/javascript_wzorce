@@ -300,8 +300,8 @@ MYAPP.namespace = (ns_string) ->
     parent = parent[i]
   parent
 
-module2 = MYAPP.namespace('MYAPP.modules.module2')
-log module2 is MYAPP.modules.module2
+# module2 = MYAPP.namespace('MYAPP.modules.module2')
+# log module2 is MYAPP.modules.module2
 
 
 # ******************************   METODY I WŁAŚCIWOŚCI PRYWATNE   *********************************************
@@ -358,17 +358,17 @@ log sp.specs
 
 # Literały obiektów a prywatność: literał obiektu należy otoczyć funkcją anonimową wywoływaną natychmiast po zadeklarowaniu
 
-myLitObj = (() ->
+myLitObj = do () ->
   name = 'ojej'
-  { getName: -> log name })()
+  { getName: -> log name }
 
 myLitObj.getName()
 
 # połączenie 2 wzorców: zmiennych prywatnych w konstruktorze i właściwości prywatnych w literałach obiektów
-Gadget::twoPatterns = ( () ->
+Gadget::twoPatterns = do () ->
 # twoPatterns = ( ->
-  browser = 'Mobile Webkit'
-  { getBrowser: -> log browser })()
+  browser = 'Mobile kit'
+  { getBrowser: -> log browser }
 
 # Gadget::twoPatterns
 
@@ -377,30 +377,82 @@ for i of toy
 
 `Gadget.prototype = (function () {
     // zmienna prywatna
-  var browser = "Mobile WebKit";
+  var br = "Mobile WebKit";
     // prototyp składowych publicznych
   return {
     getBrowser: function () {
-      return browser;
+      return br;
     }
   };
 }());`
 
 toy.twoPatterns.getBrowser()
-#log toy.getBrowser()
+# log toy.getBrowser()
 
 
+# Udostępnianie funkcji prywatnych jako metod publicznych API ? ********************************* ?
+
+myarr = {}
+do () ->
+  astr = "[object Array]"
+  toString = Object.prototype.toString
+  isArray = (a) -> toString.call(a) is astr
+  indexOf = (haystack, needle) ->
+    for v,i in haystack
+      return i if v is needle
+    1
+  myarr =
+    isArray: isArray
+    indexOf: indexOf
+    inArray: indexOf
+
+# log myarr.isArray([1,2])
+# log myarr.isArray({0: 1})
+# log myarr.indexOf(["a", "b", "z"], "z")
+# log myarr.inArray(["a", "b", "z"], "z")
 
 
+# ******************************   WZORZEC MODUŁU   ***********************************************
 
 
+MYAPP.namespace('MYAPP.utilities.array')
+log MYAPP
+
+# MYAPP.utilities.array = do () ->
+#   # zależności - inne np moduły
+#   uobj = MYAPP.utilities.object
+#   ulang = MYAPP.utilities.lang
+#   array_string = "[object Array]"
+#   ops = Object.prototype.toString
+#   return
+#     isArr: (a) -> ops.call(a) is array_string
+#     inArr: (haystack, needle) ->
+#       for v,i in haystack
+#         return true if v is needle
+# log MYAPP.utilities.array
+# log MYAPP.utilities.array.inArr(["a", "b", "z"], "z")
+
+# better version of the above:
+
+MYAPP.utilities.array = do () ->
+  array_string = "[object Array]"
+  ops = Object.prototype.toString
+  isArr = (a) -> ops.call(a) is array_string
+  inArr = (haystack, needle) ->
+    for v,i in haystack
+      return true if v is needle
+  return
+    isArr: isArr
+    inArr: inArr
+
+log MYAPP.utilities.array
+log MYAPP.utilities.array.inArr(["a", "b", "z"], "z")
+
+# import zmiennych globalnych do modułu
+MYAPP.utilities.module = ((app, global) -> )(MYAPP, @)
 
 
-
-
-
-
-
+# ******************************   WZORZEC PIASKOWNICY   **********************************************
 
 
 
