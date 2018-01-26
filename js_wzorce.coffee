@@ -21,7 +21,8 @@ man =
   legs: 2
   heads: 1
 
-Object::myFunction = -> log('myFunction is my element') if (typeof Object::myFunction is 'undefined' or Object::myFunction isnt 'function')
+Object::myFunction = ->
+  log('myFunction is my element') if (typeof Object::myFunction is 'undefined' or Object::myFunction isnt 'function')
 
 for i of man
   log i, ":", man[i]
@@ -45,12 +46,12 @@ for i of man
 # !!! Wartość zwracana przez konstruktor :: strona 53
 # !!! Wzorce wymuszania użycia new :: strona 54
 #Samowywołujący się konstruktor
-if !(this instanceof arguments.callee)
+if !(@ instanceof arguments.callee)
   return new arguments.callee()
 
 # JSON
 
-# Przeciwieństwem metody przetwarzającej format JSON (JSON.parse()) jest metoda
+# Przeciwieństwem metody przetwarzającej format JSON - JSON.parse() - jest metoda
 # JSON.stringify(), która przyjmuje obiekt lub tablicę (a nawet typ prosty) i zamienia je na
 # ciąg znaków w formacie JSON.
 
@@ -70,6 +71,7 @@ try
     remedy: () -> log 'genericErrorHandler' # genericErrorHandler = kto powinien obsłużyć błąd
 catch e
   log e.message
+  log e.name
   e.remedy()
 
 # ******************************   FUNCTIONS   *************************************************************
@@ -93,17 +95,18 @@ sth = () ->
 # CALLBACK
 findNodes = (callback) ->
   nodes = []
-  found = ''
+  found = 'znaleziony cb'
   callback = false if typeof callback isnt 'function'
   while i
     # some logics here
     callback(found) if callback
     nodes.push(found)
     i = false
-    nodes
+    log nodes
 
 hide = (node) ->
-  log 'hide the DOM node'
+  #log 'hide the DOM node'
+  log "hide the node number #{node}"
   #node.style.display = 'none'
 
 findNodes(hide)
@@ -112,15 +115,18 @@ findNodes(hide)
 myapp = {}
 myapp.color = "green"
 myapp.paint = (node) ->
+  #node.style.color = @color
   log "the node is #{node}"
 
+# przekazanie funkcji zwrotnej wraz z referencją do obiektu, do którego należy funkcja zwrotna
+
 findNodes = (callback, cb_obj) ->
-  found = 'found'
+  found = 'foundeded'
   callback.call(cb_obj, found) if typeof callback is 'function'
   callback = cb_obj[callback] if typeof callback is 'string'
 
 findNodes(myapp.paint, myapp)
-findNodes('methods_name', myapp)
+log findNodes('color', myapp)
 
 
 # ******************************   CLOSURE counter is not available to the outside world   *******************
@@ -132,6 +138,7 @@ setup = () ->
   ret
 
 next = setup()
+# wywołanie setup zwraca funkcję ret
 log next()
 log next()
 
@@ -150,6 +157,7 @@ aFunction = () ->
 aFunction()
 aFunction()
 
+
 # IIFE (Immediately Invoked Function Expression)
 # dostęp do obiektu globalnego uzyskiwany za pomocą global, and other arguments
 ((global, who, today) ->
@@ -160,16 +168,15 @@ aFunction()
   log msg
 )(@, 'Tomek', new Date())
 
-result = (() -> 2+2)()
+result = do -> 2+2
 log result
 
 defineObjKeysWithIIFE =
-  msg: (() ->
+  msg: do ->
     who = 'Tomka'
     what = 'zadzwoń do'
     return "#{what} #{who}"
-  )()
-  getMsg: () -> log @msg
+  getMsg: -> log @msg
 
 defineObjKeysWithIIFE.getMsg()
 
@@ -195,7 +202,7 @@ defineObjKeysWithIIFE.getMsg()
 # Jeśli istnieje więcej parametrów lub są one bardziej złożone,
 # uniwersalnym rozwiązaniem będzie ich serializacja. Parametry funkcji można zserializować
 # do formatu JSON, a następnie wykorzystać jako klucze w obiekcie cache.
-# Serializacja obiektów powoduje tracenie przez nie „tożsamości”. Jeśli dwaróżne obiekty
+# Serializacja obiektów powoduje tracenie przez nie „tożsamości”. Jeśli dwa różne obiekty
 # mają takie same właściwości, oba będą współdzieliły ten sam wpis w obiekcie zapamiętanych wyników.
 
 # with arguments.callee :: strona 83
@@ -209,6 +216,9 @@ myFunc1 = (param) ->
 
 # obiekt służący do zapamiętywania wyników
 myFunc1.cache = {}
+myFunc1('name')
+myFunc1.cache.name = 'tomek is fucking cached'
+log myFunc1.cache.name
 
 myFunc2 = () ->
   cachekey = JSON.stringify(Array::slice.call(arguments))
@@ -442,11 +452,12 @@ MYAPP.utilities.array = do () ->
     for v,i in haystack
       return true if v is needle
   return
-    isArr: isArr
-    inArr: inArr
+    sArr: isArr
+    nArr: inArr
 
+log MYAPP.utilities.array.ops
 log MYAPP.utilities.array
-log MYAPP.utilities.array.inArr(["a", "b", "z"], "z")
+log MYAPP.utilities.array.nArr(["a", "b", "z"], "z")
 
 # import zmiennych globalnych do modułu
 MYAPP.utilities.module = ((app, global) -> )(MYAPP, @)
@@ -454,21 +465,130 @@ MYAPP.utilities.module = ((app, global) -> )(MYAPP, @)
 
 # ******************************   WZORZEC PIASKOWNICY   **********************************************
 
+# Obiekt box stanowi odpowiednik obiektu MYAPP ze wzorca przestrzeni nazw — będzie zawierał
+# całą funkcjonalność biblioteczną niezbędną do zapewnienia prawidłowego działania aplikacji.
+
+# utworzenie obiektu, który wykorzystuje dwa fikcyjne moduły: ajax i event.
+
+`
+//  new Sandbox(function (box) {
+//  // tu znajduje się kod aplikacji
+//  });
+
+//  Sandbox(['dom', 'event'], function (box) {
+//    // wykorzystanie modułów dom i event
+//    Sandbox('ajax', function (box) {
+//      // kolejna piaskownica z nowym obiektem box
+//      // ten box nie jest taki sam
+//      // jak box poza tą funkcją
+//      // ...
+//      // koniec operacji dotyczących modułu ajax
+//    });
+//    // nie ma śladu po module ajax
+//  });
 
 
+function Sandbox() {
+  // zamiana argumentów na tablicę
+  var args = Array.prototype.slice.call(arguments),
+  // ostatni argument to funkcja wywołania zwrotnego
+  callback = args.pop(),
+  // moduły mogą zostać przekazane jako tablica lub osobne parametry
+  modules = (args[0] && typeof args[0] === "string") ? args : args[0],
+  i;
+  // sprawdzenie, czy funkcja została
+  // wywołana jako konstruktor
+  if (!(this instanceof Sandbox)) {
+    return new Sandbox(modules, callback);
+  }
+  // dodanie w razie potrzeby właściwości do this
+  this.a = 1;
+  this.b = 2;
+  // dodaj moduły do głównego obiektu this
+  // brak modułów lub * oznacza zastosowanie wszystkich modułów
+  if (!modules || modules === '*') {
+    modules = [];
+    for (i in Sandbox.modules) {
+      if (Sandbox.modules.hasOwnProperty(i)) {
+        modules.push(i);
+      }
+    }
+  }
+  // inicjalizacja wymaganych modułów
+  for (i = 0; i < modules.length; i += 1) {
+    Sandbox.modules[modules[i]](this);
+  }
+  // wywołanie funkcji zwrotnej
+  callback(this);
+}
+
+// dodanie w razie potrzeby ogólnych właściwości do prototypu
+Sandbox.prototype = {
+  name: "Moja aplikacja",
+  version: "1.0",
+  getName: function () {
+    return this.name;
+  }
+};
+`
+
+# ******************************   Prywatne składowe statyczne   **********************************************
 
 
+# funkcja otaczająca wykona się od razu i zwróci inną funkcję. Ta zwrócona funkcja zostanie przypisana do
+# zmiennej Gadget, stając się konstruktorem.
+
+Gadget_3 = do () ->
+  counter = 0
+  NewGadget = () -> log counter += 1
+  NewGadget::getLastId = () -> counter
+  NewGadget
+
+g1 = new Gadget_3
+g2 = new Gadget_3
+iphone = new Gadget_3
+iphone.getLastId()
+ipod = new Gadget_3
+ipod.getLastId()
+
+# statyczna właściwość jest niejako unikatowym identyfikatorem każdego obiektu tworzonego za pomocą konstruktora Gadget_3
 
 
+# ******************************   Wzorzec łańcucha wywołań   **********************************************
 
 
+objChain =
+  value: 1
+  increment: () ->
+    @value += 1
+    @
+  add: (v) ->
+    @value += v
+    @
+  shout: () -> log @value
 
+objChain.increment().add(7).shout()
 
+# ***************************** Metoda method()
 
+method = () ->
+  if (typeof Person::method isnt "function")
+    Person::method = (name, implementation) ->
+      @prototype[name] = implementation
+      return @
 
+class Person
+  constructor: (@name) ->
 
+method 'getName', () ->
+  @.name
+method 'setName', (name) ->
+  @name = name
+  @
 
-
+a = new Person('adam')
+for i of a
+  log i, ":", a[i]
 
 
 
