@@ -2,6 +2,9 @@
 # author source: https://github.com/stoyan
 
 log = console.log.bind(console)
+# console.dir is the way to see all the properties of specified javascipt object in console
+#  by which developer can easily get the properties of object
+dir = console.dir.bind(console)
 fs = require 'fs'
 numFile = './numbers.txt'
 strFile = './string.txt'
@@ -279,21 +282,25 @@ dsa = add(5)
 log dsa(4)
 
 # funkcja dodająca do dowolnej funkcji aplikację częściową:
+# schonfinkelize zwraca funckje, która ma dostęp do slice i stored_args - dostępne dzięki closure
 schonfinkelize = (fn) ->
   slice = Array.prototype.slice
-  stored_args = slice.call(arguments, 1) # store all args but first since it's a partial application function
+  stored_args = slice.call(arguments, 1) # store all args but the first, in array, since the first arg is a partial application function
   () ->
     new_args = slice.call(arguments)
     args = stored_args.concat(new_args)
     fn.apply(null, args)
 
-added = (x, y) ->
-  x + y
+added = (x, y, z) ->
+  x + y + z
 
-log added(4,3)
+log added(4,3,0)
 
-newAdd = schonfinkelize(add,5)
+newAdd = schonfinkelize(added,15, 5)
 log newAdd(1)
+
+
+# ******************************   Przestrzeń Nazw   ************************************************
 
 
 # Przed dodaniem właściwości lub utworzeniem przestrzeni nazw lepiej jest sprawdzić, czy ta już istnieje
@@ -310,8 +317,11 @@ MYAPP.namespace = (ns_string) ->
     parent = parent[i]
   parent
 
-# module2 = MYAPP.namespace('MYAPP.modules.module2')
-# log module2 is MYAPP.modules.module2
+module2 = MYAPP.namespace('MYAPP.modules.module2')
+module3 = MYAPP.namespace('MYAPP.modules.module3')
+log module2 is MYAPP.modules.module2
+log MYAPP
+log MYAPP.namespace
 
 
 # ******************************   METODY I WŁAŚCIWOŚCI PRYWATNE   *********************************************
@@ -320,8 +330,9 @@ MYAPP.namespace = (ns_string) ->
 # że są dla tej funkcji zmiennymi lokalnymi i nie wyciekają na zewnątrz.
 
 class Gadget
+  @lastName = (lN) -> log lN
   name = 'iPod' # zmienna prywatna
-  getName: -> "getName returns #{name}" # funkcja publiczna
+  getName: => "getName returns #{name}" # funkcja publiczna
 
 toy = new Gadget
   # name jest niezdefiniowane, bo jest zmienną prywatną
@@ -329,6 +340,8 @@ log toy.name # undefined
   # metoda publiczna ma dostęp do name
 log toy.getName() # "iPod"
   # getName() jest metodą uprzywilejowaną, ponieważ ma szczególną własność — ma dostęp do zmiennej prywatnej name.
+# static properties
+Gadget.lastName('tomac')
 
 class Foo
   # this will be our private method. it is invisible outside of the current scope
@@ -337,8 +350,15 @@ class Foo
   # '=' creates a *local* variable # : adds a property to the class prototype
   bar: -> foo()
 
+Foo::foo1 = () -> log "foo1"
 faz = new Foo
-log faz.bar()
+faz.foo2 = -> log "foo2"
+
+for i of faz
+  log i, ":", faz[i]
+
+faz.bar()
+faz.foo2()
 
 # Problemy z prywatnością:
 # 1. Niektóre wcześniejsze wersje przeglądarki Firefox dopuszczały przekazanie do metody
@@ -358,10 +378,14 @@ class Gadget_2
 
 sp = new Gadget_2
 s = sp.getSpecs()
+log s
 s.price = 500
 s.color = 'red'
 log sp.getSpecs()
 log sp.specs
+
+# Problemem jest fakt zwracania przez getSpec() referencji do obiektu specs. Dzięki temu
+# użytkownik obiektu Gadget może zmodyfikować ten ukryty i teoretycznie prywatny obiekt.
 
 # nieprzekazywanie prywatnych obiektów oraz tablic w sposób bezpośredni, zmodyfikowanie metody getSpecs()
 # w taki sposób, by zwracała nowy obiekt tylko z tymi danymi, które są niezbędne dla wywołującego
@@ -376,11 +400,8 @@ myLitObj.getName()
 
 # połączenie 2 wzorców: zmiennych prywatnych w konstruktorze i właściwości prywatnych w literałach obiektów
 Gadget::twoPatterns = do () ->
-# twoPatterns = ( ->
   browser = 'Mobile kit'
   { getBrowser: -> log browser }
-
-# Gadget::twoPatterns
 
 for i of toy
   log i, ":", toy[i]
@@ -403,7 +424,7 @@ toy.twoPatterns.getBrowser()
 # Udostępnianie funkcji prywatnych jako metod publicznych API ? ********************************* ?
 
 myarr = {}
-do () ->
+do ->
   astr = "[object Array]"
   toString = Object.prototype.toString
   isArray = (a) -> toString.call(a) is astr
@@ -444,7 +465,7 @@ log MYAPP
 
 # better version of the above:
 
-MYAPP.utilities.array = do () ->
+MYAPP.utilities.array = do ->
   array_string = "[object Array]"
   ops = Object.prototype.toString
   isArr = (a) -> ops.call(a) is array_string
@@ -461,6 +482,7 @@ log MYAPP.utilities.array.nArr(["a", "b", "z"], "z")
 
 # import zmiennych globalnych do modułu
 MYAPP.utilities.module = ((app, global) -> )(MYAPP, @)
+log MYAPP.utilities
 
 
 # ******************************   WZORZEC PIASKOWNICY   **********************************************
@@ -469,68 +491,58 @@ MYAPP.utilities.module = ((app, global) -> )(MYAPP, @)
 # całą funkcjonalność biblioteczną niezbędną do zapewnienia prawidłowego działania aplikacji.
 
 # utworzenie obiektu, który wykorzystuje dwa fikcyjne moduły: ajax i event.
+Sandbox = () ->
+  args = Array.prototype.slice.call(arguments) # zamiana argumentów na tablicę
+  callback = args.pop() # ostatni argument to funkcja wywołania zwrotnego
+  modules = if (args[0] and typeof args[0] is "string") then args else args[0]
+  log "args are #{args}"
+  log "callback is #{callback}"
+  return new Sandbox if not (@ instanceof Sandbox)
+  @a = 1 # dodanie w razie potrzeby właściwości do this
+  @b = 2
+  if not (modules or modules is '*') # dodaj moduły do głównego obiektu this
+    modules = []
+    for i of Sandbox.modules
+      if Sandbox.modules.hasOwnProperty(i)
+        modules.push i
+  log modules
+  for i in modules
+    log i
+    Sandbox.modules[i](@)
+  callback @
 
-`
-//  new Sandbox(function (box) {
-//  // tu znajduje się kod aplikacji
-//  });
-
-//  Sandbox(['dom', 'event'], function (box) {
-//    // wykorzystanie modułów dom i event
-//    Sandbox('ajax', function (box) {
-//      // kolejna piaskownica z nowym obiektem box
-//      // ten box nie jest taki sam
-//      // jak box poza tą funkcją
-//      // ...
-//      // koniec operacji dotyczących modułu ajax
-//    });
-//    // nie ma śladu po module ajax
-//  });
+Sandbox.prototype =
+  name: "Moja aplikacja"
+  version: "1.0"
+  getName: () ->
+    return name
 
 
-function Sandbox() {
-  // zamiana argumentów na tablicę
-  var args = Array.prototype.slice.call(arguments),
-  // ostatni argument to funkcja wywołania zwrotnego
-  callback = args.pop(),
-  // moduły mogą zostać przekazane jako tablica lub osobne parametry
-  modules = (args[0] && typeof args[0] === "string") ? args : args[0],
-  i;
-  // sprawdzenie, czy funkcja została
-  // wywołana jako konstruktor
-  if (!(this instanceof Sandbox)) {
-    return new Sandbox(modules, callback);
-  }
-  // dodanie w razie potrzeby właściwości do this
-  this.a = 1;
-  this.b = 2;
-  // dodaj moduły do głównego obiektu this
-  // brak modułów lub * oznacza zastosowanie wszystkich modułów
-  if (!modules || modules === '*') {
-    modules = [];
-    for (i in Sandbox.modules) {
-      if (Sandbox.modules.hasOwnProperty(i)) {
-        modules.push(i);
-      }
-    }
-  }
-  // inicjalizacja wymaganych modułów
-  for (i = 0; i < modules.length; i += 1) {
-    Sandbox.modules[modules[i]](this);
-  }
-  // wywołanie funkcji zwrotnej
-  callback(this);
-}
+Sandbox.modules = {}
+Sandbox.modules.dom = (box) ->
+  log "this is box: #{box}"
+  box.getElement = -> log 'get element'
+  box.getStyle = -> log 'get style'
+  box.foo = "foo::bar"
+Sandbox.modules.event = (box) ->
+  log "this is box: #{box}"
+  box.attachEvent = -> log 'attach event'
+  box.detachEvent = -> log 'detach event'
 
-// dodanie w razie potrzeby ogólnych właściwości do prototypu
-Sandbox.prototype = {
-  name: "Moja aplikacja",
-  version: "1.0",
-  getName: function () {
-    return this.name;
-  }
-};
-`
+# Możemy pominąć new i utworzyć obiekt, który wykorzystuje dwa fikcyjne moduły: ajaxi event.
+# Sandbox(['otherDom', 'OtherEvent'], (box) ->
+#   # wykorzystanie modułów dom i event
+#   Sandbox('ajax', (box) ->
+#     # kolejna piaskownica z nowym obiektem box ten box nie jest taki sam jak box poza tą funkcją
+#   )
+#   # nie ma śladu po module ajax
+# )
+
+log Sandbox
+log Sandbox.prototype.name
+for i of Sandbox.prototype
+  log i
+
 
 # ******************************   Prywatne składowe statyczne   **********************************************
 
@@ -540,22 +552,51 @@ Sandbox.prototype = {
 
 Gadget_3 = do () ->
   counter = 0
-  NewGadget = () -> log counter += 1
-  NewGadget::getLastId = () -> counter
+  NewGadget = () -> log "Gadget_3 counter #{counter += 1}"
+  NewGadget::getLastId = () -> log "getLastId is #{counter}"
   NewGadget
 
 g1 = new Gadget_3
 g2 = new Gadget_3
+log g1
+log g1 instanceof Gadget_3
+g1.getLastId()
+for i of g1
+  log "this is a property of g1: #{i}"
+
 iphone = new Gadget_3
 iphone.getLastId()
 ipod = new Gadget_3
 ipod.getLastId()
 
-# statyczna właściwość jest niejako unikatowym identyfikatorem każdego obiektu tworzonego za pomocą konstruktora Gadget_3
+Gadget_3::setPrice = (price) ->
+  constructor: (@price) ->
+  log price
+
+Gadget_3.isShiny = ->
+  log "of'course !"
+
+iphone.setPrice(500)
+Gadget_3.isShiny()
+# iphone.isShiny() - not gonna work
+
+Gadget_3::isShiny = ->
+  log "oczywiście że of'course!"
+
+# pisząc metodę statyczną, trzeba bardzo uważać na użycie this. Wywołanie Gadget.isShiny() oznacza, że this
+# wewnątrz isShiny() będzie wskazywało na konstruktor Gadget. W wywołaniu iphone.isShiny() będzie natomiast wskazywało na iphone.
+
+iphone.isShiny()
+
+# Ponieważ przy każdym nowym obiekcie licznik jest zwiększany o 1, statyczna właściwość jest niejako
+# unikatowym identyfikatorem każdego obiektu tworzonego za pomocą konstruktora Gadget_3
 
 
 # ******************************   Wzorzec łańcucha wywołań   **********************************************
 
+# Gdy tworzy się metody, które nie zwracają żadnej sensownej wartości, można zwrócić aktualną
+# wartość this, czyli instancję obiektu, na którym metody aktualnie operują. Dzięki tej operacji
+# użytkownicy obiektu będą mogli łączyć wywołania metod w jeden łańcuch.
 
 objChain =
   value: 1
@@ -569,26 +610,340 @@ objChain =
 
 objChain.increment().add(7).shout()
 
+# ***************************** constants
+
+constant = do ->
+  constants = {}
+  ownProp = Object::hasOwnProperty
+  allowed =
+    string: 1
+    number: 1
+    boolean: 1
+  prefix = (Math.random() + '_').slice(10)
+
+  set: (name, value) ->
+    return false if @isDefined(name)
+    return false if not ownProp.call(allowed, typeof value)
+    constants[prefix + name] = value
+    true
+  isDefined: (name) ->
+    ownProp.call(constants, prefix + name)
+  get: (name) ->
+    log constants[prefix + name] if @isDefined(name)
+  listConstants: ->
+    log constants
+
+
+constant.isDefined('maxW')
+constant.set('minD', 300)
+constant.isDefined('minD')
+constant.get('minD')
+constant.listConstants()
+
 # ***************************** Metoda method()
 
-method = () ->
-  if (typeof Person::method isnt "function")
-    Person::method = (name, implementation) ->
-      @prototype[name] = implementation
-      return @
+if (typeof Function::method isnt "function")
+  Function::method = (name, implementation) ->
+    @prototype[name] = implementation
+    return @
 
 class Person
   constructor: (@name) ->
+# Person = (name) ->
+#   @name = name
 
-method 'getName', () ->
-  @.name
-method 'setName', (name) ->
+# log typeof Person
+# b = new Function
+# for i of b
+#   log i, ":", b[i]
+# log Person.method
+
+Person.method 'getName', () ->
+  @name
+
+Person.method 'setName', (name) ->
   @name = name
   @
 
 a = new Person('adam')
 for i of a
   log i, ":", a[i]
+
+log "a name: #{a.getName()}"
+
+
+# ******************************   Dziedziczenie classyczne   **********************************************
+
+
+# Ogólna zasada dotycząca konstruktorów jest następująca: składowe używane wielokrotnie
+# przez różne obiekty należy dodawać do prototypu.
+
+class Parent
+  constructor: (name) ->
+    @name = name or 'Adam'
+
+Parent::say = -> log @name
+
+class Child extends Parent
+  constructor: () ->
+    super('super Adam')
+
+kid = new Child()
+
+kid.say()
+
+# W poniższy sposób można jednak dziedziczyć jedynie właściwości dodane do this wewnątrz konstruktora
+# przodka. Składowe dodane do prototypu nie zostaną odziedziczone.
+# obiekty potomne otrzymują kopie odziedziczonych składowych, a nie jedynie ich referencje
+# skopiowało właściwości przodka do właściwości rodzica — nie brały w tym udziału żadne referencje __proto__.
+# Porzyczanie konstruktora
+
+Child_1 = (c, e) ->
+  Parent.apply(@, arguments)
+
+# Dziedziczenie wielobazowe
+
+Cat = ->
+  @legs = 4
+  @say = -> 'miiaał'
+
+Bird = ->
+  @wings = 2
+  @fly = true
+
+CatWings = ->
+  Cat.apply @
+  Bird.apply @
+
+jane = new CatWings
+dir jane
+
+# Zalety i wady wzorca pożyczania konstruktora str 122
+
+# pożyczanie i ustawianie prototypu
+
+Child_2 = (a, b, c) ->
+  Parent.apply(@, arguments)
+
+Child_2.prototype = new Parent()
+# obiekt potomny dziedziczy wszystko po przodku, a jednocześnie ma własne kopie właściwości
+
+# współdzielenie prototypu
+
+inherit = (C, P) ->
+  C.prototype = P.prototype
+# wada: jeśli dowolny potomek z łańcucha prototypów zmieni prototyp, zauważą to wszystkie obiekty
+
+# konstruktor tymczasowy (prośredniczący) + Zapamiętywanie klasy nadrzędnej + Czyszczenie referencji na konstruktor
+
+inherit_2 = (C, P) ->
+  F = ->
+  do (C, P) ->
+    F.prototype = P.prototype
+    C.prototype = new F()
+    C.uber = P.prototype
+    C.prototype.constructor = C
+
+
+# PODEJŚCIE KLASOWE
+
+klass = (Parent, props) ->
+
+  Child = ->
+    if Child.uber and Child.uber.hasOwnProperty("__construct")
+      Child.uber.__construct.apply(@, arguments)
+    if Child.prototype.hasOwnProperty("__construct")
+      Child.prototype.__construct.apply(@, arguments)
+
+  Parent = Parent or Object
+  F = ->
+  F.prototype = Parent.prototype
+  Child.prototype = new F()
+  Child.uber = Parent.prototype
+  Child.prototype.constructor = Child
+
+  for i of props
+    if props.hasOwnProperty i
+      Child.prototype[i] = props[i]
+
+  Child
+
+
+newClassImplementation =
+  __construct: (what) ->
+    log "Konstruktor klasy Man"
+    @name = what
+  getName: () ->
+    @name
+
+Man = klass(null, newClassImplementation)
+
+
+# ******************************   Dziedziczenie prototypowe   **********************************************
+
+
+# Dziedziczenie prototypowe
+
+object = (o) ->
+  F = ->
+  F.prototype = o
+  new F
+
+parent_3 =
+  name: 'dude'
+
+child_3 = object(parent_3)
+
+log child_3.name
+
+child_4 = Object.create(parent_3, {age: {value: 2}})
+log child_4.hasOwnProperty "age"
+
+# Dziedziczenie przez kopiowanie właściwości - dotyczy on tylko i wyłącznie obiektów i ich własnych właściwości
+
+extend = (parent, child) ->
+  child = child or {}
+  for i of parent
+    child[i] = parent[i]
+  child
+
+dad =
+  counts: [1, 22, 333]
+  name: 'maestre'
+
+kid = extend dad
+log kid.name
+
+extendDeep = (parent, child) ->
+  child = child or {}
+  toStr = Object::toString
+  astr = '[object array]'
+  for i of parent
+    if parent.hasOwnProperty i
+      if typeof parent[i] is 'object'
+        child[i] = if (toStr.call(parent[i]) is astr) then [] else {}
+        extendDeep(parent[i], child[i])
+      else
+        child[i] = parent[i]
+  child
+
+bigKid = extendDeep dad
+log bigKid.name
+log bigKid.counts[2]
+
+# Wzorzec wmieszania - mix-in
+
+mixin = ->
+  child = {}
+  for arg in arguments
+    for prop of arg
+      if arg.hasOwnProperty prop
+        child[prop] = arg[prop]
+  child
+
+cake = mixin(
+  {eggs: "2 jajka", large: true},
+  {butter: 1, salted: true},
+  {flour: "3 szklanki"},
+  {sugar: "tak!"}
+)
+
+log "properties of cake are: "
+for i of cake
+  if hasOwn.call(cake, i)
+    log i, ":", cake[i]
+
+# Pożyczanie metod
+myobj = {'tomek': 'sawicki'}
+p1 = 'do myobj'
+notmyobj =
+  doStuff: () -> log "borrowing doStuff #{p1}"
+notmyobj.doStuff.apply(myobj, [p1])
+
+for i of myobj
+  if hasOwn.call(myobj, i)
+    log i, "::", myobj[i]
+
+
+#notmyobj zawiera metodę doStuff którą pożyczymy/dziedziczymy tymczasowo dla obiektu myobj
+
+f = ->
+  # args = [].slice.call(arguments, 1, 3)
+  args = Array.prototype.slice.call(arguments, 1, 3)
+  log args
+
+# pusta tablica powstaje tylko po to, by można było wywołać jej metodę.
+# Array.prototype... nie wymaga niepotrzebnego tworzenia tablicy - bezpośrednie pożyczenie metody od prototypu
+
+f(1,2,3,4,5,6)
+
+# Pożyczenie i przypisanie
+
+one =
+  name: 'objekcie'
+  say: (greet) ->
+    log "#{greet} #{@name}"
+
+one.say('witaj')
+
+two =
+  name: 'inny objekcie'
+
+one.say.apply(two, ['hello'])
+
+# global
+say = one.say
+say('Hi')
+
+# Aby rozwiązać problem, czyli powiązać obiekt z metodą, wystarczy bardzo prosta funkcja:
+bind = (object, method) ->
+  () -> method.apply(object, [].slice.call(arguments))
+
+# other version
+
+# if typeof Function::bindMe is 'undefined'
+#   Function::bindMe = (thisArgs) ->
+#     fn = @
+#     agrs = slice.call(arguments, 1)
+#     return () ->
+#       fn.apply(thisArgs, args.concat(slice.call(arguments)))
+
+# Funkcja bind() przyjmuje obiekt o i metodę m, a następnie łączy je ze sobą i zwraca nową
+# metodę. Zwrócona funkcja ma dostęp do o i m dzięki domknięciu = nawet po wykonaniu bind() będzie
+# ona pamiętała o i m, więc będzie mogła wywołać oryginalny obiekt i oryginalną metodę.
+saytwo = bind(two, one.say)
+saytwo('hey')
+
+# twosay2 = one.say.bindMe(two)
+# twosay2('Bonjour')
+# twosay3 = one.say.bind(two, 'Enchanté')
+# twosay3()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
