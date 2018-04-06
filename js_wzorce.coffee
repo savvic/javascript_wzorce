@@ -43,6 +43,9 @@ for i of man
 # legs : 2
 # heads : 1
 
+for own key, value of man
+  log "coffee's for own: #{key} - #{value}"
+
 # ******************************   CONSTRUCTORS   *********************************************************
 
 # !!! Własne funkcje konstruujące :: strona 52 - wytłumaczenie procesu: var sth = new Something
@@ -692,10 +695,10 @@ kid = new Child()
 
 kid.say()
 
-# W poniższy sposób można jednak dziedziczyć jedynie właściwości dodane do this wewnątrz konstruktora
+# W poniższy sposób możne jednak dziedziczyć jedynie właściwości dodane do this wewnątrz konstruktora
 # przodka. Składowe dodane do prototypu nie zostaną odziedziczone.
-# obiekty potomne otrzymują kopie odziedziczonych składowych, a nie jedynie ich referencje
-# skopiowało właściwości przodka do właściwości rodzica — nie brały w tym udziału żadne referencje __proto__.
+# Obiekty potomne otrzymują kopie odziedziczonych składowych, a nie jedynie ich referencje
+# skopiowane właściwości przodka do właściwości rodzica — nie brały w tym udziału żadne referencje __proto__.
 # Porzyczanie konstruktora
 
 Child_1 = (c, e) ->
@@ -734,7 +737,7 @@ inherit = (C, P) ->
   C.prototype = P.prototype
 # wada: jeśli dowolny potomek z łańcucha prototypów zmieni prototyp, zauważą to wszystkie obiekty
 
-# konstruktor tymczasowy (prośredniczący) + Zapamiętywanie klasy nadrzędnej + Czyszczenie referencji na konstruktor
+# konstruktor tymczasowy (pośredniczący) + Zapamiętywanie klasy nadrzędnej + Czyszczenie referencji na konstruktor
 
 inherit_2 = (C, P) ->
   F = ->
